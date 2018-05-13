@@ -130,9 +130,23 @@ namespace TeaVendorTallyTool {
             string votedTable = "Rank | Vendor/Website Link | Reddit User / Vendor Comments\n---------|---------|---------\n";
             string unvotedTable = "Vendor/Website Link | Reddit User / Vendor Comments\n---------|---------\n";
 
+            int rankPosition = 1;
+            bool draw = false;
+
             for (int i = 0; i < vendors.Count; i++) {
+                //check if the ranks are drawn
+                if (i > 0) {
+                    if (vendors[i].VendorPoints == vendors[i-1].VendorPoints) {
+                        draw = true;
+                    } else {
+                        draw = false;
+                        rankPosition++;
+                    }
+                }
+
+                //write the tables
                 if (vendors[i].VendorPoints > 0) {
-                    votedTable += string.Format("{0} | {1} | {2}\n", i + 1, vendors[i].VendorLinks, vendors[i].VendorQuote);
+                    votedTable += string.Format("{0} | {1} | {2}\n", draw?"-":rankPosition.ToString(), vendors[i].VendorLinks, vendors[i].VendorQuote);
                 } else {
                     unvotedTable += string.Format("{0} | {1}\n", vendors[i].VendorLinks, vendors[i].VendorQuote);
                 }
