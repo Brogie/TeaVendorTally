@@ -37,7 +37,6 @@ namespace TeaVendorTallyTool {
 
                 writeTable(allVendors);
             }
-
         }
 
         private static void MapQuoteData(List<Vendor> MapTo, string quoteFileLocation) {
@@ -61,11 +60,8 @@ namespace TeaVendorTallyTool {
                 if (quotes.ContainsKey(MapTo[i].VendorName)) {
                     MapTo[i].VendorLinks = quotes[MapTo[i].VendorName].Item1;
                     MapTo[i].VendorQuote = quotes[MapTo[i].VendorName].Item2;
-                } else if (MapTo[i].VendorName == "Tea Gschwendner") {//dirty but no easy way around with the dataset
-                    MapTo[i].VendorLinks = "[Tea Gschwendner](http://shop.tgtea.com/) also [German site](http://www.teegschwendner.de/)";
-                    MapTo[i].VendorQuote = "\"They are a German company with physical retail locations in Chicago, IL, and around the world. ... I find their loose leaf teas to be of higher quality than other tea shops with retail locations in Chicago... while being similar in price. They sell flavored teas, unflavored teas, rooibos and herbal.\"";
-                } else {
-                    Console.WriteLine(MapTo[i].VendorName + " Does not have a map, please manually add links and quote");
+                }  else {
+                    Console.WriteLine(MapTo[i].VendorName + " Does not have a map, please manually add links and quote or fix the value in the quote file.");
                     MapTo[i].VendorLinks = "[" + MapTo[i].VendorName + "]";
                     MapTo[i].VendorQuote = "*QUOTE MISSING*";
                 }
