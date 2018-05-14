@@ -82,8 +82,11 @@ namespace TeaVendorTallyTool {
                 //start at 1 to remove "Timestamp" column
                 for (int i = 1; i < values.Length; i++) {
                     //Clean the name
-                    string vendorName = values[i].Remove(values[i].Length - 1);
-                    vendorName = vendorName.Remove(0, 41);
+                    var pattern = @"\[(.*?)\]";
+                    string vendorName = Regex.Match(values[i], pattern).ToString();
+                    vendorName = vendorName.Replace("[", string.Empty);
+                    vendorName = vendorName.Replace("]", string.Empty);
+
 
                     Vendor temp = new Vendor();
                     temp.VendorName = vendorName;
