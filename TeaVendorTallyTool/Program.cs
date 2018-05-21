@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
+using RedditSharp;
+using ConsoleProgressBar;
 
 namespace TeaVendorTallyTool {
 
@@ -41,7 +44,7 @@ namespace TeaVendorTallyTool {
         }
 
         private static void MapQuoteData(List<Vendor> MapTo, string quoteFileLocation) {
-            Dictionary<string, Tuple<string,string>> quotes = new Dictionary<string, Tuple<string, string>>();
+            Dictionary<string, Tuple<string, string>> quotes = new Dictionary<string, Tuple<string, string>>();
             //Read in the quote csv
             using (var reader = new StreamReader(quoteFileLocation)) {
                 while (!reader.EndOfStream) {
@@ -64,7 +67,7 @@ namespace TeaVendorTallyTool {
                 if (quotes.ContainsKey(MapTo[i].VendorName)) {
                     MapTo[i].VendorLinks = quotes[MapTo[i].VendorName].Item1;
                     MapTo[i].VendorQuote = quotes[MapTo[i].VendorName].Item2;
-                }  else {
+                } else {
                     Console.WriteLine(MapTo[i].VendorName + " Does not have a map, please manually add links and quote or fix the value in the quote file.");
                     MapTo[i].VendorLinks = "[" + MapTo[i].VendorName + "]";
                     MapTo[i].VendorQuote = "*QUOTE MISSING*";
@@ -79,8 +82,8 @@ namespace TeaVendorTallyTool {
                 var line = reader.ReadLine();
                 var values = line.Split(',');
 
-                //start at 1 to remove "Timestamp" column
-                for (int i = 1; i < values.Length; i++) {
+                //start at 1 to remove "Timestamp" and "Username" column
+                for (int i = 2; i < values.Length; i++) {
                     //Clean the name
                     var pattern = @"\[(.*?)\]";
                     string vendorName = Regex.Match(values[i], pattern).ToString();
@@ -94,36 +97,74 @@ namespace TeaVendorTallyTool {
                     vendors.Add(temp);
                 }
 
-                //Read in results
+                List<string[]> votes = new List<string[]>();
+                List<string> usernames = new List<string>();
+                List<string> bannedUsers = new List<string>();
+                //validate one vote per user
                 while (!reader.EndOfStream) {
-                    line = reader.ReadLine();
-                    values = line.Split(',');
+                    values = reader.ReadLine().Split(',');
+                    //add username to dictionary
+                    if (!usernames.Contains(values[1].ToLower())) {
+                        usernames.Add(values[1].ToLower());
+                    } else {
+                        if (!bannedUsers.Contains(values[1].ToLower())) { 
+                            bannedUsers.Add(values[1].ToLower());
+                        }
+                    }
+                    //add all votes at this point
+                    votes.Add(values);
+                }
 
-                    //Add up all points awarded to the vendors
-                    for (int i = 1; i < values.Length; i++) {
-                        switch (values[i]) {
-                            case ""://empty value will be for 95% of the values so check this first for efficiency
-                                break;
+                votes.RemoveAll(x => bannedUsers.Contains(x[1].ToLower()));
 
-                            case "1st":
-                                vendors[i - 1].VendorPoints += 5;
-                                break;
 
-                            case "2nd":
-                                vendors[i - 1].VendorPoints += 4;
-                                break;
 
-                            case "3rd":
-                                vendors[i - 1].VendorPoints += 3;
-                                break;
+                using (var pb = new ProgressBar()) {
+                    using (var p1 = pb.Progress.Fork(1, "Parsing votes")) {
+                        //Read in results
+                        for (int i = 0; i < votes.Count; i++) {
+                            p1.Report((double)i / votes.Count, $"Vote: {i}/{votes.Count}");
+                            Thread.Sleep(100);
+                            
+                            try {
+                                //Validate user
+                                var redditInterface = new Reddit();
+                                var user = redditInterface.GetUser(votes[i][1]);
+                                //if user doesn't have enough points or isn't old enough then don't add their results
+                                if (user.Created < DateTimeOffset.Now.AddDays(7) && (user.CommentKarma + user.LinkKarma) < 50) {
+                                    continue;
+                                }
+                            } catch {
+                                continue;
+                            }
 
-                            case "Runner-up 1":
-                                vendors[i - 1].VendorPoints += 1;
-                                break;
+                            //Add up all points awarded to the vendors
+                            for (int j = 2; j < votes[i].Length; j++) {
+                                switch (votes[i][j]) {
+                                    case ""://empty value will be for 95% of the values so check this first for efficiency
+                                        break;
 
-                            case "Runner-up 2":
-                                vendors[i - 1].VendorPoints += 1;
-                                break;
+                                    case "1st":
+                                        vendors[j - 1].VendorPoints += 5;
+                                        break;
+
+                                    case "2nd":
+                                        vendors[j - 1].VendorPoints += 4;
+                                        break;
+
+                                    case "3rd":
+                                        vendors[j - 1].VendorPoints += 3;
+                                        break;
+
+                                    case "Runner-up 1":
+                                        vendors[j - 1].VendorPoints += 1;
+                                        break;
+
+                                    case "Runner-up 2":
+                                        vendors[j - 1].VendorPoints += 1;
+                                        break;
+                                }
+                            }
                         }
                     }
                 }
@@ -137,11 +178,11 @@ namespace TeaVendorTallyTool {
 
             int rankPosition = 1;
             bool draw = false;
-            
+
             for (int i = 0; i < vendors.Count; i++) {
                 //check if the ranks are drawn and act accordingly
                 if (i > 0) {
-                    if (vendors[i].VendorPoints == vendors[i-1].VendorPoints) {
+                    if (vendors[i].VendorPoints == vendors[i - 1].VendorPoints) {
                         draw = true;
                     } else {
                         draw = false;
@@ -151,7 +192,7 @@ namespace TeaVendorTallyTool {
 
                 //write the tables, if a vendor has been awared no votes at all they are added to a seperate table named "additional vendor list" to avoid confusion 
                 if (vendors[i].VendorPoints > 0) {
-                    votedTable += string.Format("{0} | {1} | {2}\n", draw?"-":rankPosition.ToString(), vendors[i].VendorLinks, vendors[i].VendorQuote);
+                    votedTable += string.Format("{0} | {1} | {2}\n", draw ? "-" : rankPosition.ToString(), vendors[i].VendorLinks, vendors[i].VendorQuote);
                 } else {
                     unvotedTable += string.Format("{0} | {1}\n", vendors[i].VendorLinks, vendors[i].VendorQuote);
                 }
