@@ -222,12 +222,13 @@ namespace TeaVendorTallyTool {
                     var redditInterface = new Reddit();
                     var user = redditInterface.GetUser(values[1]);
                     //if user doesn't have enough points or isn't old enough then don't add their results
-                    if (user.Created < DateTimeOffset.Now.AddDays(7) && (user.CommentKarma + user.LinkKarma) < 50) {
+                    
+                    if (user.Created.Date > DateTimeOffset.Now.AddDays(-7).Date || (user.CommentKarma + user.LinkKarma) < 50) {
                         if (!bannedUsers.Contains(values[1].ToLower())) {
                             bannedUsers.Add(values[1].ToLower());
                         }
 
-                        if (user.Created < DateTimeOffset.Now.AddDays(7) && !tooYoungBan.Contains(values[1])) {
+                        if (user.Created.Date > DateTimeOffset.Now.AddDays(-7).Date && !tooYoungBan.Contains(values[1])) {
                             tooYoungBan.Add(values[1]);
                         }
 
@@ -284,7 +285,7 @@ namespace TeaVendorTallyTool {
                 writer.WriteLine();
 
                 //Vote heading
-                writer.WriteLine("[COMMON VOTES]");
+                writer.WriteLine("\n[COMMON VOTES]");
                 //sort vote counts
                 var sortableVoteCheck = voteCheck.ToList();
                 sortableVoteCheck.Sort((pair1, pair2) => pair1.Value.CompareTo(pair2.Value));
