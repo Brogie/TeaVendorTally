@@ -85,14 +85,14 @@ namespace TeaVendorTallyTool {
                     //Read and verify votes
                     List<string[]> votes;
                     using (var p1 = pb.Progress.Fork(1)) {
-                        votes = VerifyVotes(reader, p1);
+                        votes = VerifyVotes(reader, p1, vendors);
                     }
 
                     using (var p1 = pb.Progress.Fork(1, "Parsing votes")) {
                         //peform on each vote
                         for (int i = 0; i < votes.Count; i++) {
                             p1.Report((double)i / votes.Count, $"Vote: {i}/{votes.Count}");
-                            Thread.Sleep(10000);
+                            Thread.Sleep(10);
 
                             //Add up all points awarded to the vendors
                             for (int j = 2; j < votes[i].Length; j++) {
@@ -148,7 +148,7 @@ namespace TeaVendorTallyTool {
             }
         }
 
-        private static List<string[]> VerifyVotes(StreamReader reader, Progress prog) {
+        private static List<string[]> VerifyVotes(StreamReader reader, Progress prog, List<Vendor> vendors) {
             List<string[]> votes = new List<string[]>();
             List<string> usernames = new List<string>();
             List<string> bannedUsers = new List<string>();
@@ -164,11 +164,37 @@ namespace TeaVendorTallyTool {
                 prog.Report((double)i / file.Length, $"Verifying: {values[1]} {i}/{file.Length}");
 
                 //VOTE CHECK - add similar votes together to see vote stuffing
-                var key = string.Empty;
+                string first = "N/A", second = "N/A", third = "N/A", run1 = "N/A", run2 = "N/A";
 
+                //get veNdor names to build key
                 for (int j = 2; j < values.Length; j++) {
-                    key += values[j].Trim() != ""? values[j].Trim():"*";
+                    switch (values[j]) {
+                        case ""://empty value will be for 95% of the values so check this first for efficiency
+                            break;
+
+                        case "1st":
+                            first = vendors[j].VendorName;
+                            break;
+
+                        case "2nd":
+                            second = vendors[j].VendorName;
+                            break;
+
+                        case "3rd":
+                            third = vendors[j].VendorName;
+                            break;
+
+                        case "Runner-up 1":
+                            run1 = vendors[j].VendorName;
+                            break;
+
+                        case "Runner-up 2":
+                            run2 = vendors[j].VendorName;
+                            break;
+                    }
                 }
+
+                var key = $"1st: {first}, 2nd: {second}, 3rd: {third}, Runner-up 1: {run1}, Runner-up 2: {run2}";
 
                 if (!voteCheck.ContainsKey(key)) {
                     voteCheck.Add(key, 1);
@@ -186,21 +212,21 @@ namespace TeaVendorTallyTool {
                 }
 
                 //REDDIT CHECK - username must be valid reddit user that is older than 7 days and has karma
-                try {
-                    //Validate user
-                    var redditInterface = new Reddit();
-                    var user = redditInterface.GetUser(values[1]);
-                    //if user doesn't have enough points or isn't old enough then don't add their results
-                    if (user.Created < DateTimeOffset.Now.AddDays(7) && (user.CommentKarma + user.LinkKarma) < 50) {
-                        if (!bannedUsers.Contains(values[1].ToLower())) {
-                            bannedUsers.Add(values[1].ToLower());
-                        }
-                    }
-                } catch {//will catch when user doesn't exist (error 404)
-                    if (!bannedUsers.Contains(values[1].ToLower())) {
-                        bannedUsers.Add(values[1].ToLower());
-                    }
-                }
+                //try {
+                //    //Validate user
+                //    var redditInterface = new Reddit();
+                //    var user = redditInterface.GetUser(values[1]);
+                //    //if user doesn't have enough points or isn't old enough then don't add their results
+                //    if (user.Created < DateTimeOffset.Now.AddDays(7) && (user.CommentKarma + user.LinkKarma) < 50) {
+                //        if (!bannedUsers.Contains(values[1].ToLower())) {
+                //            bannedUsers.Add(values[1].ToLower());
+                //        }
+                //    }
+                //} catch {//will catch when user doesn't exist (error 404)
+                //    if (!bannedUsers.Contains(values[1].ToLower())) {
+                //        bannedUsers.Add(values[1].ToLower());
+                //    }
+                //}
                 //add all votes at this point
                 votes.Add(values);
             }
