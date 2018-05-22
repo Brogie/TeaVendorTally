@@ -338,10 +338,15 @@ namespace TeaVendorTallyTool {
     }
 
     internal class Vendor : IComparable {
-        public string VendorLinks;
-        public string VendorName;
-        public int VendorPoints;
-        public string VendorQuote;
+        private string vendorLinks;
+        private string vendorName;
+        private int vendorPoints;
+        private string vendorQuote;
+
+        public int VendorPoints { get => vendorPoints; set => vendorPoints = value; }
+        public string VendorName { get => vendorName; set => vendorName = value; }
+        public string VendorLinks { get => vendorLinks; set => vendorLinks = value; }
+        public string VendorQuote { get => vendorQuote; set => vendorQuote = value; }
 
         public int CompareTo(Object obj) {
             Vendor compare = obj as Vendor;
