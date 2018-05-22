@@ -261,31 +261,31 @@ namespace TeaVendorTallyTool {
                 foreach (var user in multipleBan) {
                     writer.Write(user + ", ");
                 }
-                writer.WriteLine();
+                writer.WriteLine("\n");
 
                 //Karma section
                 writer.WriteLine("-Under Karma Limit-");
                 foreach (var user in fewKarmaBan) {
                     writer.Write(user + ", ");
                 }
-                writer.WriteLine();
+                writer.WriteLine("\n");
 
                 //Age section
                 writer.WriteLine("-Under account age limit-");
                 foreach (var user in tooYoungBan) {
                     writer.Write(user + ", ");
                 }
-                writer.WriteLine();
+                writer.WriteLine("\n");
 
                 //Invalid ban
                 writer.WriteLine("-Username isn't a valid reddit account-");
                 foreach (var user in notValidBan) {
                     writer.Write(user + ", ");
                 }
-                writer.WriteLine();
+                writer.WriteLine("\n");
 
                 //Vote heading
-                writer.WriteLine("\n[COMMON VOTES]");
+                writer.WriteLine("[COMMON VOTES]");
                 //sort vote counts
                 var sortableVoteCheck = voteCheck.ToList();
                 sortableVoteCheck.Sort((pair1, pair2) => pair1.Value.CompareTo(pair2.Value));
