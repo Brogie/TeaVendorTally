@@ -152,7 +152,8 @@ namespace TeaVendorTallyTool {
             List<string[]> votes = new List<string[]>();
             List<string> usernames = new List<string>();
             List<string> bannedUsers = new List<string>();
-            Dictionary<string, int> voteCheck = new Dictionary<string, int>(); 
+            Dictionary<string, int> voteCheck = new Dictionary<string, int>();
+            List<string> multipleBan = new List<string>(), notValidBan = new List<string>(), tooYoungBan = new List<string>(), fewKarmaBan = new List<string>();
 
             string[] file = reader.ReadToEnd().Split('\n');
 
@@ -209,24 +210,40 @@ namespace TeaVendorTallyTool {
                     if (!bannedUsers.Contains(values[1].ToLower())) {
                         bannedUsers.Add(values[1].ToLower());
                     }
+
+                    if (!multipleBan.Contains(values[1])) {
+                        multipleBan.Add(values[1]);
+                    }
                 }
 
                 //REDDIT CHECK - username must be valid reddit user that is older than 7 days and has karma
-                //try {
-                //    //Validate user
-                //    var redditInterface = new Reddit();
-                //    var user = redditInterface.GetUser(values[1]);
-                //    //if user doesn't have enough points or isn't old enough then don't add their results
-                //    if (user.Created < DateTimeOffset.Now.AddDays(7) && (user.CommentKarma + user.LinkKarma) < 50) {
-                //        if (!bannedUsers.Contains(values[1].ToLower())) {
-                //            bannedUsers.Add(values[1].ToLower());
-                //        }
-                //    }
-                //} catch {//will catch when user doesn't exist (error 404)
-                //    if (!bannedUsers.Contains(values[1].ToLower())) {
-                //        bannedUsers.Add(values[1].ToLower());
-                //    }
-                //}
+                try {
+                    //Validate user
+                    var redditInterface = new Reddit();
+                    var user = redditInterface.GetUser(values[1]);
+                    //if user doesn't have enough points or isn't old enough then don't add their results
+                    if (user.Created < DateTimeOffset.Now.AddDays(7) && (user.CommentKarma + user.LinkKarma) < 50) {
+                        if (!bannedUsers.Contains(values[1].ToLower())) {
+                            bannedUsers.Add(values[1].ToLower());
+                        }
+
+                        if (user.Created < DateTimeOffset.Now.AddDays(7) && !tooYoungBan.Contains(values[1])) {
+                            tooYoungBan.Add(values[1]);
+                        }
+
+                        if ((user.CommentKarma + user.LinkKarma) < 50 && !fewKarmaBan.Contains(values[1])) {
+                            fewKarmaBan.Add(values[1]);
+                        }
+                    } 
+                } catch {//will catch when user doesn't exist (error 404)
+                    if (!bannedUsers.Contains(values[1].ToLower())) {
+                        bannedUsers.Add(values[1].ToLower());
+                    }
+
+                    if (!notValidBan.Contains(values[1])) {
+                        notValidBan.Add(values[1]);
+                    }
+                }
                 //add all votes at this point
                 votes.Add(values);
             }
@@ -236,6 +253,38 @@ namespace TeaVendorTallyTool {
 
             //output vote report
             using (var writer = new StreamWriter("VoteReport.txt")) {
+                //Banned Users heading
+                writer.WriteLine("[BANNED USERS]");
+                //multiple vote section
+                writer.WriteLine("-Multiple Votes-");
+                foreach (var user in multipleBan) {
+                    writer.Write(user + ", ");
+                }
+                writer.WriteLine();
+
+                //Karma section
+                writer.WriteLine("-Under Karma Limit-");
+                foreach (var user in fewKarmaBan) {
+                    writer.Write(user + ", ");
+                }
+                writer.WriteLine();
+
+                //Age section
+                writer.WriteLine("-Under account age limit-");
+                foreach (var user in tooYoungBan) {
+                    writer.Write(user + ", ");
+                }
+                writer.WriteLine();
+
+                //Invalid ban
+                writer.WriteLine("-Username isn't a valid reddit account-");
+                foreach (var user in notValidBan) {
+                    writer.Write(user + ", ");
+                }
+                writer.WriteLine();
+
+                //Vote heading
+                writer.WriteLine("[COMMON VOTES]");
                 //sort vote counts
                 var sortableVoteCheck = voteCheck.ToList();
                 sortableVoteCheck.Sort((pair1, pair2) => pair1.Value.CompareTo(pair2.Value));
