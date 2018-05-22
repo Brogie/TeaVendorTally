@@ -77,66 +77,22 @@ namespace TeaVendorTallyTool {
 
         private static void ReadPollingData(List<Vendor> vendors, string fileName) {
             using (var reader = new StreamReader(fileName)) {
-                //Read header and format vendor names
-                //Grabheader
-                var line = reader.ReadLine();
-                var values = line.Split(',');
-
-                //start at 1 to remove "Timestamp" and "Username" column
-                for (int i = 2; i < values.Length; i++) {
-                    //Clean the name
-                    var pattern = @"\[(.*?)\]";
-                    string vendorName = Regex.Match(values[i], pattern).ToString();
-                    vendorName = vendorName.Replace("[", string.Empty);
-                    vendorName = vendorName.Replace("]", string.Empty);
-
-
-                    Vendor temp = new Vendor();
-                    temp.VendorName = vendorName;
-                    temp.VendorPoints = 0;
-                    vendors.Add(temp);
-                }
-
-                List<string[]> votes = new List<string[]>();
-                List<string> usernames = new List<string>();
-                List<string> bannedUsers = new List<string>();
-                //validate one vote per user
-                while (!reader.EndOfStream) {
-                    values = reader.ReadLine().Split(',');
-                    //add username to dictionary
-                    if (!usernames.Contains(values[1].ToLower())) {
-                        usernames.Add(values[1].ToLower());
-                    } else {
-                        if (!bannedUsers.Contains(values[1].ToLower())) { 
-                            bannedUsers.Add(values[1].ToLower());
-                        }
-                    }
-                    //add all votes at this point
-                    votes.Add(values);
-                }
-
-                votes.RemoveAll(x => bannedUsers.Contains(x[1].ToLower()));
-
-
-
+                //Process votes 
                 using (var pb = new ProgressBar()) {
+                    //Read vendor names from the CSV header
+                    ReadVendors(vendors, reader);
+
+                    //Read and verify votes
+                    List<string[]> votes;
+                    using (var p1 = pb.Progress.Fork(1)) {
+                        votes = VerifyVotes(reader, p1);
+                    }
+
                     using (var p1 = pb.Progress.Fork(1, "Parsing votes")) {
-                        //Read in results
+                        //peform on each vote
                         for (int i = 0; i < votes.Count; i++) {
                             p1.Report((double)i / votes.Count, $"Vote: {i}/{votes.Count}");
-                            Thread.Sleep(100);
-                            
-                            try {
-                                //Validate user
-                                var redditInterface = new Reddit();
-                                var user = redditInterface.GetUser(votes[i][1]);
-                                //if user doesn't have enough points or isn't old enough then don't add their results
-                                if (user.Created < DateTimeOffset.Now.AddDays(7) && (user.CommentKarma + user.LinkKarma) < 50) {
-                                    continue;
-                                }
-                            } catch {
-                                continue;
-                            }
+                            Thread.Sleep(10000);
 
                             //Add up all points awarded to the vendors
                             for (int j = 2; j < votes[i].Length; j++) {
@@ -169,6 +125,101 @@ namespace TeaVendorTallyTool {
                     }
                 }
             }
+        }
+
+        private static void ReadVendors(List<Vendor> vendors, StreamReader reader) {
+            //Grabheader
+            var line = reader.ReadLine();
+            var values = line.Split(',');
+
+            //start at 1 to remove "Timestamp" and "Username" column
+            for (int i = 2; i < values.Length; i++) {
+                //Clean the name
+                var pattern = @"\[(.*?)\]";
+                string vendorName = Regex.Match(values[i], pattern).ToString();
+                vendorName = vendorName.Replace("[", string.Empty);
+                vendorName = vendorName.Replace("]", string.Empty);
+
+
+                Vendor temp = new Vendor();
+                temp.VendorName = vendorName;
+                temp.VendorPoints = 0;
+                vendors.Add(temp);
+            }
+        }
+
+        private static List<string[]> VerifyVotes(StreamReader reader, Progress prog) {
+            List<string[]> votes = new List<string[]>();
+            List<string> usernames = new List<string>();
+            List<string> bannedUsers = new List<string>();
+            Dictionary<string, int> voteCheck = new Dictionary<string, int>(); 
+
+            string[] file = reader.ReadToEnd().Split('\n');
+
+            for (int i = 0; i < file.Length; i++) {
+                //validate one vote per user
+                var values = file[i].Trim().Split(',');
+
+                //report progress start
+                prog.Report((double)i / file.Length, $"Verifying: {values[1]} {i}/{file.Length}");
+
+                //VOTE CHECK - add similar votes together to see vote stuffing
+                var key = string.Empty;
+
+                for (int j = 2; j < values.Length; j++) {
+                    key += values[j].Trim() != ""? values[j].Trim():"*";
+                }
+
+                if (!voteCheck.ContainsKey(key)) {
+                    voteCheck.Add(key, 1);
+                } else {
+                    voteCheck[key]++;
+                }
+
+                //USERNAME CHECK - one vote per user, band users having multiple votes
+                if (!usernames.Contains(values[1].ToLower())) {
+                    usernames.Add(values[1].ToLower());
+                } else {
+                    if (!bannedUsers.Contains(values[1].ToLower())) {
+                        bannedUsers.Add(values[1].ToLower());
+                    }
+                }
+
+                //REDDIT CHECK - username must be valid reddit user that is older than 7 days and has karma
+                try {
+                    //Validate user
+                    var redditInterface = new Reddit();
+                    var user = redditInterface.GetUser(values[1]);
+                    //if user doesn't have enough points or isn't old enough then don't add their results
+                    if (user.Created < DateTimeOffset.Now.AddDays(7) && (user.CommentKarma + user.LinkKarma) < 50) {
+                        if (!bannedUsers.Contains(values[1].ToLower())) {
+                            bannedUsers.Add(values[1].ToLower());
+                        }
+                    }
+                } catch {//will catch when user doesn't exist (error 404)
+                    if (!bannedUsers.Contains(values[1].ToLower())) {
+                        bannedUsers.Add(values[1].ToLower());
+                    }
+                }
+                //add all votes at this point
+                votes.Add(values);
+            }
+
+            //remove votes from banned users
+            votes.RemoveAll(x => bannedUsers.Contains(x[1].ToLower()));
+
+            //output vote report
+            using (var writer = new StreamWriter("VoteReport.txt")) {
+                //sort vote counts
+                var sortableVoteCheck = voteCheck.ToList();
+                sortableVoteCheck.Sort((pair1, pair2) => pair1.Value.CompareTo(pair2.Value));
+
+                foreach (var vote in sortableVoteCheck) {
+                    writer.WriteLine("Voted " + vote.Value + " times: " + vote.Key);
+                }
+            }
+
+            return votes;
         }
 
         private static void WriteTable(List<Vendor> vendors) {
