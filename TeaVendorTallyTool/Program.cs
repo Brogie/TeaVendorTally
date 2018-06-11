@@ -36,8 +36,8 @@ namespace TeaVendorTallyTool {
                 MapQuoteData(allVendors, quotesFileLocation);
 
                 //Sort the vendor lists first alphabetically, then by points so that drawn vendors are organised alphabetically
-                allVendors = allVendors.OrderBy(Vendor => Vendor.VendorName).ToList();
-                allVendors = allVendors.OrderByDescending(Vendor => Vendor.VendorPoints).ToList();
+                allVendors = allVendors.OrderBy(Vendor => Vendor.Name).ToList();
+                allVendors = allVendors.OrderByDescending(Vendor => Vendor.Points).ToList();
 
                 WriteTable(allVendors);
             }
@@ -64,13 +64,13 @@ namespace TeaVendorTallyTool {
 
             //Map the quotes from the quote csv with the vendors from the results csv using the vendor name to match with the quote key
             for (int i = 0; i < MapTo.Count; i++) {
-                if (quotes.ContainsKey(MapTo[i].VendorName)) {
-                    MapTo[i].VendorLinks = quotes[MapTo[i].VendorName].Item1;
-                    MapTo[i].VendorQuote = quotes[MapTo[i].VendorName].Item2;
+                if (quotes.ContainsKey(MapTo[i].Name)) {
+                    MapTo[i].Links = quotes[MapTo[i].Name].Item1;
+                    MapTo[i].Quote = quotes[MapTo[i].Name].Item2;
                 } else {
-                    Console.WriteLine(MapTo[i].VendorName + " Does not have a map, please manually add links and quote or fix the value in the quote file.");
-                    MapTo[i].VendorLinks = "[" + MapTo[i].VendorName + "]";
-                    MapTo[i].VendorQuote = "*QUOTE MISSING*";
+                    Console.WriteLine(MapTo[i].Name + " Does not have a map, please manually add links and quote or fix the value in the quote file.");
+                    MapTo[i].Links = "[" + MapTo[i].Name + "]";
+                    MapTo[i].Quote = "*QUOTE MISSING*";
                 }
             }
         }
@@ -101,23 +101,23 @@ namespace TeaVendorTallyTool {
                                         break;
 
                                     case "1st":
-                                        vendors[j - 1].VendorPoints += 5;
+                                        vendors[j - 1].Points += 5;
                                         break;
 
                                     case "2nd":
-                                        vendors[j - 1].VendorPoints += 4;
+                                        vendors[j - 1].Points += 4;
                                         break;
 
                                     case "3rd":
-                                        vendors[j - 1].VendorPoints += 3;
+                                        vendors[j - 1].Points += 3;
                                         break;
 
                                     case "Runner-up 1":
-                                        vendors[j - 1].VendorPoints += 1;
+                                        vendors[j - 1].Points += 1;
                                         break;
 
                                     case "Runner-up 2":
-                                        vendors[j - 1].VendorPoints += 1;
+                                        vendors[j - 1].Points += 1;
                                         break;
                                 }
                             }
@@ -141,9 +141,10 @@ namespace TeaVendorTallyTool {
                 vendorName = vendorName.Replace("]", string.Empty);
 
 
-                Vendor temp = new Vendor();
-                temp.VendorName = vendorName;
-                temp.VendorPoints = 0;
+                Vendor temp = new Vendor {
+                    Name = vendorName,
+                    Points = 0
+                };
                 vendors.Add(temp);
             }
         }
@@ -174,23 +175,23 @@ namespace TeaVendorTallyTool {
                             break;
 
                         case "1st":
-                            first = vendors[j].VendorName;
+                            first = vendors[j].Name;
                             break;
 
                         case "2nd":
-                            second = vendors[j].VendorName;
+                            second = vendors[j].Name;
                             break;
 
                         case "3rd":
-                            third = vendors[j].VendorName;
+                            third = vendors[j].Name;
                             break;
 
                         case "Runner-up 1":
-                            run1 = vendors[j].VendorName;
+                            run1 = vendors[j].Name;
                             break;
 
                         case "Runner-up 2":
-                            run2 = vendors[j].VendorName;
+                            run2 = vendors[j].Name;
                             break;
                     }
                 }
@@ -309,7 +310,7 @@ namespace TeaVendorTallyTool {
             for (int i = 0; i < vendors.Count; i++) {
                 //check if the ranks are drawn and act accordingly
                 if (i > 0) {
-                    if (vendors[i].VendorPoints == vendors[i - 1].VendorPoints) {
+                    if (vendors[i].Points == vendors[i - 1].Points) {
                         draw = true;
                     } else {
                         draw = false;
@@ -318,10 +319,10 @@ namespace TeaVendorTallyTool {
                 }
 
                 //write the tables, if a vendor has been awared no votes at all they are added to a seperate table named "additional vendor list" to avoid confusion 
-                if (vendors[i].VendorPoints > 0) {
-                    votedTable += string.Format("{0} | {1} | {2}\n", draw ? "-" : rankPosition.ToString(), vendors[i].VendorLinks, vendors[i].VendorQuote);
+                if (vendors[i].Points > 0) {
+                    votedTable += string.Format("{0} | {1} | {2}\n", draw ? "-" : rankPosition.ToString(), vendors[i].Links, vendors[i].Quote);
                 } else {
-                    unvotedTable += string.Format("{0} | {1}\n", vendors[i].VendorLinks, vendors[i].VendorQuote);
+                    unvotedTable += string.Format("{0} | {1}\n", vendors[i].Links, vendors[i].Quote);
                 }
             }
 
@@ -338,22 +339,26 @@ namespace TeaVendorTallyTool {
     }
 
     internal class Vendor : IComparable {
-        private string vendorLinks;
-        private string vendorName;
-        private int vendorPoints;
-        private string vendorQuote;
+        private string links;
+        private string name;
+        private int points;
+        private string quote;
+        private string origin;
+        private string range;
 
-        public int VendorPoints { get => vendorPoints; set => vendorPoints = value; }
-        public string VendorName { get => vendorName; set => vendorName = value; }
-        public string VendorLinks { get => vendorLinks; set => vendorLinks = value; }
-        public string VendorQuote { get => vendorQuote; set => vendorQuote = value; }
+        public int Points { get => points; set => points = value; }
+        public string Name { get => name; set => name = value; }
+        public string Links { get => links; set => links = value; }
+        public string Quote { get => quote; set => quote = value; }
+        public string Origin { get => origin; set => origin = value; }
+        public string Range { get => range; set => range = value; }
 
         public int CompareTo(Object obj) {
             Vendor compare = obj as Vendor;
 
-            if (this.VendorPoints < compare.VendorPoints) {
+            if (this.Points < compare.Points) {
                 return 1;
-            } else if (this.VendorPoints == compare.VendorPoints) {
+            } else if (this.Points == compare.Points) {
                 return 0;
             } else {
                 return -1;
