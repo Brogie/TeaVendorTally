@@ -10,40 +10,210 @@ using ConsoleProgressBar;
 namespace TeaVendorTallyTool {
 
     internal class Program {
+        public enum State {
+            MAINMENU,
+            LOADSETTINGS,
+            SETTINGS,
+            RUN,
+            EXIT
+        };
+
+        private struct Settings {
+            public string VendorFileLocation { get; set; }
+            public string VoteFileLocation { get; set; }
+            public string OldOrderFileLocation { get; set; }
+            public bool RankChangeColumn { get; set; }
+            public bool Verify { get; set; }
+            public bool RedditVerify { get; set; }
+            public bool RegionalTable { get; set; }
+        }
 
         private static void Main(string[] args) {
-            string resultsFileLocation = string.Empty;
-            string quotesFileLocation = "quotes.csv";
+            State progState = State.LOADSETTINGS;
+            Settings progSettings = new Settings();
 
-            //Process command line arguments
-            if (args.Length == 1) {
-                resultsFileLocation = args[0];
-            } else {
-                for (int i = 0; i < args.Length; i++) {
-                    if (args[i].ToLower() == "-r") {
-                        resultsFileLocation = args[i + 1];
-                    } else if (args[i].ToLower() == "-q") {
-                        quotesFileLocation = args[i + 1];
-                    }
+            //State machine
+            while (progState != State.EXIT) {
+                Console.Clear();
+                switch (progState) {
+                    case State.MAINMENU:
+                        UserInput.Header("Main Menu");
+                        progState =  MainMenuSelector();
+                        break;
+                    case State.LOADSETTINGS:
+                        LoadSettings(ref progSettings);
+                        progState = State.MAINMENU;
+                        break;
+                    case State.SETTINGS:
+                        UserInput.Header("Settings");
+                        EditSettings(ref progSettings, ref progState);
+                        break;
+                    case State.RUN:
+                        break;
+                    case State.EXIT:
+                        break;
+                    default:
+                        break;
                 }
             }
 
-            if (resultsFileLocation != string.Empty && File.Exists(resultsFileLocation) && File.Exists(quotesFileLocation)) {
-                List<Vendor> allVendors = new List<Vendor>();
+            //string resultsFileLocation = string.Empty;
+            //string quotesFileLocation = "quotes.csv";
 
-                ReadVendors(allVendors, quotesFileLocation);
+            ////Process command line arguments
+            //if (args.Length == 1) {
+            //    resultsFileLocation = args[0];
+            //} else {
+            //    for (int i = 0; i < args.Length; i++) {
+            //        if (args[i].ToLower() == "-r") {
+            //            resultsFileLocation = args[i + 1];
+            //        } else if (args[i].ToLower() == "-q") {
+            //            quotesFileLocation = args[i + 1];
+            //        }
+            //    }
+            //}
 
-                //Load in the vendor poll CSV and shop quotes
-                ReadPollingData(allVendors, resultsFileLocation);
-                //MapQuoteData(allVendors, quotesFileLocation);
+            //if (resultsFileLocation != string.Empty && File.Exists(resultsFileLocation) && File.Exists(quotesFileLocation)) {
+            //    List<Vendor> allVendors = new List<Vendor>();
 
-                //Sort the vendor lists first alphabetically, then by points so that drawn vendors are organised alphabetically
-                allVendors = allVendors.OrderBy(Vendor => Vendor.Name).ToList();
-                allVendors = allVendors.OrderByDescending(Vendor => Vendor.Points).ToList();
+            //    ReadVendors(allVendors, quotesFileLocation);
 
-                WriteTable(allVendors);
+            //    //Load in the vendor poll CSV and shop quotes
+            //    ReadPollingData(allVendors, resultsFileLocation);
+
+            //    //Sort the vendor lists first alphabetically, then by points so that drawn vendors are organised alphabetically
+            //    allVendors = allVendors.OrderBy(Vendor => Vendor.Name).ToList();
+            //    allVendors = allVendors.OrderByDescending(Vendor => Vendor.Points).ToList();
+
+            //    WriteTable(allVendors);
+            //}
+        }
+
+        #region MenuOptions
+        static private State MainMenuSelector() {
+            State output = State.MAINMENU;
+            string[] options = new string[] { "Run", "Settings", "Exit" };
+
+            //Options menu
+            switch (options[UserInput.SelectionMenu(options)]) {
+                case "Run": output = State.RUN;
+                    break;
+                case "Settings": output = State.SETTINGS;
+                    break;
+                case "Exit": output = State.EXIT;
+                    break;
+
+                default:
+                    break;
+            }
+
+            return output;
+        }
+
+        static private void LoadSettings(ref Settings settings) {
+            if (!File.Exists("Settings.txt")) {
+                using(var writer = new StreamWriter("Settings.txt")) {
+                    writer.WriteLine("Vendor File Location = ");
+                    writer.WriteLine("Vote File Location = ");
+                    writer.WriteLine("Old Order File Location = ");
+                    writer.WriteLine("Rank Change Column = True");
+                    writer.WriteLine("Verify = True");
+                    writer.WriteLine("Reddit Verify = False");
+                    writer.WriteLine("Regional Tables = False");
+                }
+            }
+
+            using (var reader = new StreamReader("Settings.txt")) {
+                while (!reader.EndOfStream) {
+                    var values = reader.ReadLine().Split('=');
+
+                    for (int i = 0; i < values.Length; i++) {
+                        values[i] = values[i].Trim();
+                    }
+
+                    switch (values[0]) {
+                        case "Vendor File Location": settings.VendorFileLocation = values[1];
+                            break;
+                        case "Vote File Location": settings.VoteFileLocation = values[1];
+                            break;
+                        case "Old Order File Location": settings.OldOrderFileLocation = values[1];
+                            break;
+                        case "Rank Change Column": settings.RankChangeColumn = values[1].ToLower() == "true";
+                            break;
+                        case "Verify": settings.Verify = values[1].ToLower() == "true";
+                            break;
+                        case "Reddit Verify": settings.RedditVerify = values[1].ToLower() == "true";
+                            break;
+                        case "Regional Tables": settings.RegionalTable = values[1].ToLower() == "true";
+                            break;
+
+                        default:
+                            break;
+                    }
+                }
             }
         }
+
+        static private void EditSettings(ref Settings settings, ref State progState) {
+            string[] options = new string[] {"Vendor File Location",
+                                            "Vote File Location",
+                                            "Old Order File Location",
+                                            "Rank Change Column",
+                                            "Verify",
+                                            "Reddit Verify",
+                                            "Regional Tables",
+                                            "EXIT TO MENU"};
+
+            switch (options[UserInput.SelectionMenu(options)]) {
+                case "Vendor File Location":
+                    Console.Write("[Enter new Vendor File Location]: ");
+                    settings.VendorFileLocation = UserInput.ValidString(1,100);
+                    break;
+                case "Vote File Location":
+                    Console.Write("[Enter new Vote File Location]: ");
+                    settings.VoteFileLocation = UserInput.ValidString(1, 100);
+                    break;
+                case "Old Order File Location":
+                    Console.Write("[Enter new Old Order File Location]: ");
+                    settings.OldOrderFileLocation = UserInput.ValidString(1, 100);
+                    break;
+                case "Rank Change Column":
+                    Console.WriteLine("[Set Rank Change Column value]");
+                    settings.RankChangeColumn = UserInput.TrueFalse();
+                    break;
+                case "Verify":
+                    Console.WriteLine("[Set Verify value]");
+                    settings.Verify = UserInput.TrueFalse();
+                    break;
+                case "Reddit Verify":
+                    Console.WriteLine("[Set Reddit Verify value]");
+                    settings.RedditVerify = UserInput.TrueFalse();
+                    break;
+                case "Regional Tables":
+                    Console.WriteLine("[Set Regional Tables value]");
+                    settings.RegionalTable = UserInput.TrueFalse();
+                    break;
+                case "EXIT TO MENU":
+                    progState = State.MAINMENU;
+                    break;
+            }
+
+            SaveSettings(settings);
+        }
+
+        private static void SaveSettings(Settings settings) {
+            using(var writer = new StreamWriter("Settings.txt")) {
+                writer.WriteLine("Vendor File Location = " + settings.VendorFileLocation);
+                writer.WriteLine("Vote File Location = " + settings.VoteFileLocation);
+                writer.WriteLine("Old Order File Location = " + settings.OldOrderFileLocation);
+                writer.WriteLine("Rank Change Column = " + settings.RankChangeColumn.ToString());
+                writer.WriteLine("Verify = " + settings.Verify.ToString());
+                writer.WriteLine("Reddit Verify = " + settings.RedditVerify.ToString());
+                writer.WriteLine("Regional Tables = " + settings.RegionalTable.ToString());
+            }
+        }
+
+        #endregion
 
         private static void ReadPollingData(List<Vendor> vendors, string fileName) {
             // make a name searchable vendor list
@@ -67,7 +237,7 @@ namespace TeaVendorTallyTool {
                         //peform on each vote
                         for (int i = 0; i < votes.Count; i++) {
                             p1.Report((double)i / votes.Count, $"Vote: {i}/{votes.Count}");
-                            Thread.Sleep(10);
+                            Thread.Sleep(20);
 
                             //1st
                             if (VendorDict.ContainsKey(votes[i][2])) {
@@ -263,9 +433,10 @@ namespace TeaVendorTallyTool {
 
                 //Vote heading
                 writer.WriteLine("[COMMON VOTES]");
+
                 //sort vote counts
                 var sortableVoteCheck = voteCheck.ToList();
-                sortableVoteCheck.Sort((pair1, pair2) => pair1.Value.CompareTo(pair2.Value));
+                sortableVoteCheck.Sort((pair1, pair2) => pair2.Value.CompareTo(pair1.Value));
 
                 foreach (var vote in sortableVoteCheck) {
                     writer.WriteLine("Voted " + vote.Value + " times: " + vote.Key);
