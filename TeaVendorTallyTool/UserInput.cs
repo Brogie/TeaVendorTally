@@ -64,6 +64,19 @@ namespace TeaVendorTallyTool {
             Console.SetCursorPosition(inStartOffsetL, inStartOffsetT);
         }
 
+        public static void ColourText(string text, ConsoleColor fg = ConsoleColor.Black, ConsoleColor bg = ConsoleColor.DarkRed) {
+            var tempbg = Console.BackgroundColor;
+            var tempfg = Console.ForegroundColor;
+
+            Console.BackgroundColor = bg;
+            Console.ForegroundColor = fg;
+
+            Console.Write(text);
+
+            Console.BackgroundColor = tempbg;
+            Console.ForegroundColor = tempfg;
+        }
+
         /// <summary>
         /// Draws a header at the top of the screen and returns the cursor back
         /// to the start location.
