@@ -333,9 +333,6 @@ namespace TeaVendorTallyTool {
                 VendorDict.Add(v.Name, v);
             }
 
-            //debug
-            List<string> shitlords = new List<string>();
-
             using (var reader = new StreamReader(fileName)) {
                 //Process votes 
                 List<string> unmatched = new List<string>();
@@ -345,12 +342,6 @@ namespace TeaVendorTallyTool {
                     Thread.Sleep(5);
                     //add vendors that have been voted for to stop multiple votes per person
                     List<string> votedVendors = new List<string>();
-
-                    //debug
-                    if (votes[i][2] == "Teasenz" || votes[i][3] == "Teasenz" || votes[i][4] == "Teasenz" || votes[i][5] == "Teasenz" || votes[i][6] == "Teasenz") {
-                        shitlords.Add(votes[i][1]);
-                    }
-
 
                     //1st
                     if (VendorDict.ContainsKey(votes[i][2])) {
