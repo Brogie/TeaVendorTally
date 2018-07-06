@@ -1,7 +1,7 @@
 # TeaVendorTally
 A program for tallying points from a google forms vote, specificallly designed for the /r/tea subreddit.
 
-## Setup
+## Setup (now outdated)
 ### Google Form Settings
 1. Take the existing vendor list and add the vendor names as options in a multiple choice grid. The choices available should be "1st", "2nd", "3rd", "Runner-up 1" and "Runner-up 2".
 2. Check shuffle row order, allow only one answer per person and check limit to one option per column. 
