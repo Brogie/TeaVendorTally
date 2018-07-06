@@ -333,6 +333,9 @@ namespace TeaVendorTallyTool {
                 VendorDict.Add(v.Name, v);
             }
 
+            //debug
+            List<string> shitlords = new List<string>();
+
             using (var reader = new StreamReader(fileName)) {
                 //Process votes 
                 List<string> unmatched = new List<string>();
@@ -340,34 +343,55 @@ namespace TeaVendorTallyTool {
                 for (int i = 0; i < votes.Count; i++) {
                     pBar.Tick("Counting " + (i + 1) + "/" + votes.Count + " : " + votes[i][1]);
                     Thread.Sleep(5);
+                    //add vendors that have been voted for to stop multiple votes per person
+                    List<string> votedVendors = new List<string>();
+
+                    //debug
+                    if (votes[i][2] == "Teasenz" || votes[i][3] == "Teasenz" || votes[i][4] == "Teasenz" || votes[i][5] == "Teasenz" || votes[i][6] == "Teasenz") {
+                        shitlords.Add(votes[i][1]);
+                    }
+
 
                     //1st
                     if (VendorDict.ContainsKey(votes[i][2])) {
                         VendorDict[votes[i][2]].Points += weighted? 5:1;
+                        votedVendors.Add(votes[i][2]);
                     } else {
                         unmatched.Add(votes[i][2]);
                     }
                     //2nd
                     if (VendorDict.ContainsKey(votes[i][3])) {
-                        VendorDict[votes[i][3]].Points += weighted ? 4 : 1;
+                        if (!votedVendors.Contains(votes[i][3])) {
+                            VendorDict[votes[i][3]].Points += weighted ? 4 : 1;
+                        }
+                        votedVendors.Add(votes[i][3]);
                     } else {
                         unmatched.Add(votes[i][3]);
                     }
                     //3rd
                     if (VendorDict.ContainsKey(votes[i][4])) {
-                        VendorDict[votes[i][4]].Points += weighted ? 3 : 1;
+                        if (!votedVendors.Contains(votes[i][4])) {
+                            VendorDict[votes[i][4]].Points += weighted ? 3 : 1;
+                        }
+                        votedVendors.Add(votes[i][4]);
                     } else {
                         unmatched.Add(votes[i][4]);
                     }
                     //run 1
                     if (VendorDict.ContainsKey(votes[i][5])) {
-                        VendorDict[votes[i][5]].Points += weighted ? 1 : 1;
+                        if (!votedVendors.Contains(votes[i][5])) {
+                            VendorDict[votes[i][5]].Points += weighted ? 1 : 1;
+                        }
+                        votedVendors.Add(votes[i][5]);
                     } else {
                         unmatched.Add(votes[i][5]);
                     }
                     //run 2
                     if (VendorDict.ContainsKey(votes[i][6])) {
-                        VendorDict[votes[i][6]].Points += weighted ? 1 : 1;
+                        if (!votedVendors.Contains(votes[i][6])) {
+                            VendorDict[votes[i][6]].Points += weighted ? 1 : 1;
+                        }
+                        votedVendors.Add(votes[i][6]);
                     } else {
                         unmatched.Add(votes[i][6]);
                     }
@@ -378,8 +402,6 @@ namespace TeaVendorTallyTool {
                         Console.WriteLine("Unmatched vote: " + u);
                     }
                 }
-
-
             }
         }
 
@@ -389,6 +411,8 @@ namespace TeaVendorTallyTool {
             List<string> bannedUsers = new List<string>();
             Dictionary<string, int> voteCheck = new Dictionary<string, int>();
             List<string> multipleBan = new List<string>(), notValidBan = new List<string>(), tooYoungBan = new List<string>(), fewKarmaBan = new List<string>();
+
+            Users VerifyCache = new Users("Files/VerifyCache.csv");
 
             string[] file;
 
@@ -400,7 +424,7 @@ namespace TeaVendorTallyTool {
                 //validate one vote per user
                 var values = file[i].Trim().Split(',');
 
-                pBar.Tick("Verifying " + (i+1) + "/" + (file.Length - 1) + " : " + values[1]);
+                pBar.Tick("Verifying " + (i) + "/" + (file.Length - 1) + " : " + values[1]);
 
                 Thread.Sleep(5);
 
@@ -431,7 +455,7 @@ namespace TeaVendorTallyTool {
                     voteCheck[key]++;
                 }
 
-                //USERNAME CHECK - one vote per user, band users having multiple votes
+                //USERNAME CHECK - one vote per user, ban users having multiple votes
                 if (!usernames.Contains(values[1].ToLower())) {
                     usernames.Add(values[1].ToLower());
                 } else {
@@ -446,32 +470,67 @@ namespace TeaVendorTallyTool {
 
                 //REDDIT CHECK - username must be valid reddit user that is older than 7 days and has karma
                 if (settings.RedditVerify) {
+
+                    string Username = values[1].Trim();
+                    if (Username.ToLower().StartsWith("/u/") || Username.ToLower().StartsWith("\\u\\")) {
+                        Username = Username.Remove(0, 3);
+                    } else if (Username.ToLower().StartsWith("u/") || Username.ToLower().StartsWith("u\\")) {
+                        Username = Username.Remove(0, 2);
+                    }
+
                     try {
                         //Validate user
-                        var redditInterface = new Reddit();
-                        var user = redditInterface.GetUser(values[1]);
+                        User user = VerifyCache.GetUser(Username);
+
+                        if(user == null) {
+                            var redditInterface = new Reddit();
+                            var userRequest = redditInterface.GetUser(Username);
+
+                            User temp = new User {
+                                Username = Username,
+                                Exists = true,
+                                Creation = userRequest.Created,
+                                Karma = userRequest.CommentKarma + userRequest.LinkKarma
+                            };
+
+                            VerifyCache.AddUser(temp);
+                        } else {
+                            if (!user.Exists) {
+                                throw new Exception();
+                            }
+                        }
+
                         //if user doesn't have enough points or isn't old enough then don't add their results
 
-                        if (user.Created.Date > DateTimeOffset.Now.AddDays(-7).Date || (user.CommentKarma + user.LinkKarma) < 50) {
+                        if (user.Creation > new DateTimeOffset(2018,5,28,0,0,0, new TimeSpan(0)) || user.Karma < 0) {
                             if (!bannedUsers.Contains(values[1].ToLower())) {
                                 bannedUsers.Add(values[1].ToLower());
                             }
 
-                            if (user.Created.Date > DateTimeOffset.Now.AddDays(-7).Date && !tooYoungBan.Contains(values[1])) {
+                            if (user.Creation > new DateTimeOffset(2018, 5, 28, 0, 0, 0, new TimeSpan(0)) && !tooYoungBan.Contains(values[1])) {
                                 tooYoungBan.Add(values[1]);
                             }
 
-                            if ((user.CommentKarma + user.LinkKarma) < 50 && !fewKarmaBan.Contains(values[1])) {
+                            if (user.Karma < 0 && !fewKarmaBan.Contains(values[1])) {
                                 fewKarmaBan.Add(values[1]);
                             }
                         }
                     } catch {//will catch when user doesn't exist (error 404)
-                        if (!bannedUsers.Contains(values[1].ToLower())) {
-                            bannedUsers.Add(values[1].ToLower());
+                        if(VerifyCache.GetUser(Username) == null) {
+                            User temp = new User {
+                                Username = Username,
+                                Exists = false
+                            };
+
+                            VerifyCache.AddUser(temp);
                         }
 
-                        if (!notValidBan.Contains(values[1])) {
-                            notValidBan.Add(values[1]);
+                        if (!bannedUsers.Contains(Username)) {
+                            bannedUsers.Add(Username.ToLower());
+                        }
+
+                        if (!notValidBan.Contains(Username)) {
+                            notValidBan.Add(Username.ToLower());
                         }
                     }
                 }
@@ -484,7 +543,7 @@ namespace TeaVendorTallyTool {
             votes.RemoveAll(x => bannedUsers.Contains(x[1].ToLower()));
 
             //output vote report
-            using (var writer = new StreamWriter("VoteReport.txt")) {
+            using (var writer = new StreamWriter("files/VoteReport.txt")) {
                 //Banned Users heading
                 writer.WriteLine("[BANNED USERS]");
                 //multiple vote section
@@ -523,7 +582,9 @@ namespace TeaVendorTallyTool {
                 sortableVoteCheck.Sort((pair1, pair2) => pair2.Value.CompareTo(pair1.Value));
 
                 foreach (var vote in sortableVoteCheck) {
-                    writer.WriteLine("Voted " + vote.Value + " times: " + vote.Key);
+                    if (vote.Value > 1) {
+                        writer.WriteLine("Voted " + vote.Value + " times: " + vote.Key);
+                    }
                 }
             }
 
@@ -587,13 +648,15 @@ namespace TeaVendorTallyTool {
 
                         if (vendors[i].Change == 1000) {
                             change = "New";
-                        } else if (vendors[i].Change > 0) {
-                            change = "⇑ " + vendors[i].Change;
-                        } else if (vendors[i].Change < 0) {
-                            change = "⇓ " + Math.Abs(vendors[i].Change);
-                        } else if (vendors[i].Change == 0) {
-                            change = "⇔";
-                        } 
+                        } else if (rankPosition <= 1000) {
+                            if (vendors[i].Change > 0) {
+                                change = "⇑ " + vendors[i].Change;
+                            } else if (vendors[i].Change < 0) {
+                                change = "⇓ " + Math.Abs(vendors[i].Change);
+                            } else if (vendors[i].Change == 0) {
+                                change = "⇔";
+                            }
+                        }
 
                         votedTable += string.Format("{0} | {1} | {2} | {3} | {4} | {5}\n", change, draw ? "-" : rankPosition.ToString(), vendors[i].Links, vendors[i].Quote, vendors[i].Origin, vendors[i].Range);
                     } else {
